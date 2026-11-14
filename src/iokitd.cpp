@@ -21,6 +21,11 @@
 #include <stdexcept>
 #include <stdarg.h>
 #include <string>
+#include <IOKit/IOReturn.h>
+
+extern "C" {
+#include "iokitmigServer.h"
+}
 
 pid_t g_iokitCurrentCallerPID;
 
@@ -39,4 +44,16 @@ void throwCFStringException(CFStringRef format, ...)
 	CFRelease(text);
 
 	throw std::runtime_error(str);
+}
+
+// IOKit sends the binary forms of its requests (io_service_add_notification_bin and friends) only when the server
+// reports 20140421 or later; the string forms are unsupported, as in XNU.
+kern_return_t is_io_server_version
+(
+	mach_port_t master_port,
+	uint64_t *version
+)
+{
+	*version = IOKIT_SERVER_VERSION;
+	return kIOReturnSuccess;
 }
