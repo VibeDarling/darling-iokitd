@@ -21,6 +21,7 @@
 #define IOKITD_REGISTRY_H
 #include "IOService.h"
 #include <list>
+#include <vector>
 #import <Foundation/NSDictionary.h>
 #include "IOIterator.h"
 
@@ -31,6 +32,7 @@ private:
 public:
 	static ServiceRegistry* instance();
 	void registerService(IOService* service);
+	std::vector<IOObject*> matchingServices(NSDictionary* criteria) const;
 	IOIterator* iteratorForMatchingServices(NSDictionary* criteria) const;
 	IOService* firstMatchingService(NSDictionary* criteria) const;
 private:

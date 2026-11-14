@@ -37,7 +37,7 @@ ServiceRegistry* ServiceRegistry::instance()
 	return &reg;
 }
 
-IOIterator* ServiceRegistry::iteratorForMatchingServices(NSDictionary* criteria) const
+std::vector<IOObject*> ServiceRegistry::matchingServices(NSDictionary* criteria) const
 {
 	std::vector<IOObject*> matching;
 
@@ -47,7 +47,12 @@ IOIterator* ServiceRegistry::iteratorForMatchingServices(NSDictionary* criteria)
 			matching.push_back(*it);
 	}
 
-	return new IOIterator(matching);
+	return matching;
+}
+
+IOIterator* ServiceRegistry::iteratorForMatchingServices(NSDictionary* criteria) const
+{
+	return new IOIterator(matchingServices(criteria));
 }
 
 IOService* ServiceRegistry::firstMatchingService(NSDictionary* criteria) const
