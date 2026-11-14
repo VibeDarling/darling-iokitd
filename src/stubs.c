@@ -383,22 +383,6 @@ kern_return_t is_io_object_get_bundle_identifier
     return KERN_NOT_SUPPORTED;
 }
 
-kern_return_t is_io_service_open_extended
-(
-	mach_port_t service,
-	task_t owningTask,
-	uint32_t connect_type,
-	NDR_record_t ndr,
-	io_buf_ptr_t properties,
-	mach_msg_type_number_t propertiesCnt,
-	kern_return_t *result,
-	mach_port_t *connection
-)
-{
-    STUB();
-    return KERN_NOT_SUPPORTED;
-}
-
 kern_return_t is_io_connect_map_memory_into_task
 (
 	mach_port_t connection,

@@ -24,6 +24,8 @@
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOKitLibPrivate.h>
 
+class IOUserClient;
+
 class IOService : public IORegistryEntry
 {
 public:
@@ -31,6 +33,10 @@ public:
 	virtual NSDictionary* matchingDictionary() = 0;
 	bool matches(NSDictionary* dict);
 	bool conformsTo(const char* className) override;
+
+	// XNU's IOService::newUserClient for a service whose driver names no user client class: unsupported. A service
+	// that has one hands it back in *client with kIOReturnSuccess, or says why not (an unknown type is unsupported).
+	virtual IOReturn newUserClient(uint32_t type, IOUserClient** client);
 
 	uint32_t busyState() const { return m_busyState; }
 	uint64_t accumulatedBusyTime() const { return m_accumulatedBusyTime; }

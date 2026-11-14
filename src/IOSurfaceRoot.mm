@@ -117,6 +117,20 @@ NSDictionary* IOSurfaceRoot::matchingDictionary()
 	};
 }
 
+// IOSurfaceRoot is its own user client, as Darling's IOSurface framework uses it (it calls the service as a connection).
+// Connect type 0 is the only one: it is what the IOSurface framework of the dyld cache sends (seen in iokitd's request
+// log). Whether Apple's IOSurfaceRoot has other types is NEEDS-REAL-MAC.
+IOReturn IOSurfaceRoot::newUserClient(uint32_t type, IOUserClient** client)
+{
+	if (type != 0)
+	{
+		*client = nullptr;
+		return kIOReturnUnsupported;
+	}
+	*client = this;
+	return kIOReturnSuccess;
+}
+
 IOExternalMethod *IOSurfaceRoot::getExternalMethodForIndex(UInt32 index)
 {
 	static const IOExternalMethod methods[] = {

@@ -75,6 +75,12 @@ bool IOService::matches(NSDictionary* dict)
 	return true;
 }
 
+IOReturn IOService::newUserClient(uint32_t type, IOUserClient** client)
+{
+	*client = nullptr;
+	return kIOReturnUnsupported;
+}
+
 bool IOService::conformsTo(const char* className)
 {
 	if (strcmp(className, "IOService") == 0)
