@@ -10,7 +10,8 @@
 //     service or a type without one, kIOReturnBadArgument for a null task or an object that is not a service;
 //   - the connection answers IOConnectCallMethod (an unknown selector is kIOReturnUnsupported);
 //   - the class chain is walked: every service is an IORegistryEntry too; an IOProviderClass that is not a string is skipped;
-//   - IOServiceOpen refuses an owning task that is not the caller's (kIOReturnBadArgument);
+//   - IOServiceOpen refuses an owning task that is not the caller's (kIOReturnBadArgument), also when another process
+//     called the master port in between;
 //   - with RAW_MIG: the ool form of io_service_get_matching_service takes binary and XML, refuses a request that does
 //     not go to the master port (kIOReturnNotPrivileged), garbage (kIOReturnBadArgument) and an unterminated XML
 //     buffer, and answers kIOReturnNotFound for a dictionary nothing matches.
@@ -93,8 +94,8 @@ extern void* CFStringCreateWithCString(void*, const char*, unsigned);
 extern void* CFNumberCreate(void*, long, const void*);
 extern void CFDictionarySetValue(void*, const void*, const void*);
 
-// Opening with an owning task that is not the caller's: a port that is no task at all, and the task of a child process.
-static void raw_open_task(mach_port_t surface)
+// Opening with an owning task that is not the caller's: a port that is no task at all, and the task of another process.
+static void raw_open_task(mach_port_t master, mach_port_t surface)
 {
 	kern_return_t result = 0x7777;
 	mach_port_t connection = 0x7777;
@@ -103,15 +104,28 @@ static void raw_open_task(mach_port_t surface)
 	expect_kr(mach_port_insert_right(mach_task_self(), notATask, notATask, MACH_MSG_TYPE_MAKE_SEND), KERN_SUCCESS, "make a send right");
 	expect_kr(io_service_open_extended(surface, notATask, 0, NDR_record, NULL, 0, &result, &connection), kIOReturnBadArgument, "IOServiceOpen with a port that is not a task");
 
+	// The caller of a request is its sender, whichever port it goes to: a second process messages the master port
+	// between this process's master-port call and its open, and the open must still be judged against its own sender.
+	int toChild[2], fromChild[2];
+	expect(pipe(toChild) == 0 && pipe(fromChild) == 0, "pipes");
 	pid_t child = fork();
 	expect(child >= 0, "fork");
 	if (child == 0) {
-		sleep(30);
-		_exit(0);
+		char b;
+		mach_port_t childMaster = MACH_PORT_NULL;
+		if (read(toChild[0], &b, 1) != 1 || IOMasterPort(MACH_PORT_NULL, &childMaster) != KERN_SUCCESS)
+			_exit(2);
+		io_service_t s = IOServiceGetMatchingService(childMaster, IOServiceMatching("IOSurfaceRoot"));
+		_exit(MACH_PORT_VALID(s) && write(fromChild[1], "x", 1) == 1 && read(toChild[0], &b, 1) >= 0 ? 0 : 3);
 	}
 	mach_port_t childTask = MACH_PORT_NULL;
 	expect_kr(task_for_pid(mach_task_self(), child, &childTask), KERN_SUCCESS, "task_for_pid of the child");
-	expect_kr(io_service_open_extended(surface, childTask, 0, NDR_record, NULL, 0, &result, &connection), kIOReturnBadArgument, "IOServiceOpen with the child's task");
+	expect(MACH_PORT_VALID(IOServiceGetMatchingService(master, IOServiceMatching("IOSurfaceRoot"))), "own master-port call");
+	char b;
+	expect(write(toChild[1], "x", 1) == 1 && read(fromChild[0], &b, 1) == 1, "the child made its master-port call");
+	expect_kr(io_service_open_extended(surface, childTask, 0, NDR_record, NULL, 0, &result, &connection), kIOReturnBadArgument, "IOServiceOpen with the child's task, after the child's master-port call");
+	expect_kr(io_service_open_extended(surface, mach_task_self(), 0, NDR_record, NULL, 0, &result, &connection), KERN_SUCCESS, "IOServiceOpen with its own task, after the child's master-port call");
+	expect_kr(result, KERN_SUCCESS, "and it is granted");
 	kill(child, 9);
 }
 
@@ -224,7 +238,7 @@ int main(void)
 
 #ifdef RAW_MIG
 	raw_ool(master, surface);
-	raw_open_task(surface);
+	raw_open_task(master, surface);
 #endif
 
 	IOObjectRelease(surface);
