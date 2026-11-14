@@ -286,21 +286,6 @@ kern_return_t is_io_async_method_structureI_structureO
     return KERN_NOT_SUPPORTED;
 }
 
-kern_return_t is_io_service_add_notification
-(
-	mach_port_t master_port,
-	io_name_t notification_type,
-	io_string_t matching,
-	mach_port_t wake_port,
-	io_async_ref_t reference,
-	mach_msg_type_number_t referenceCnt,
-	mach_port_t *notification
-)
-{
-    STUB();
-    return KERN_NOT_SUPPORTED;
-}
-
 kern_return_t is_io_service_add_interest_notification
 (
 	mach_port_t service,
@@ -376,23 +361,6 @@ kern_return_t is_io_service_match_property_table_ool
     return KERN_NOT_SUPPORTED;
 }
 
-kern_return_t is_io_service_add_notification_ool
-(
-	mach_port_t master_port,
-	io_name_t notification_type,
-	io_buf_ptr_t matching,
-	mach_msg_type_number_t matchingCnt,
-	mach_port_t wake_port,
-	io_async_ref_t reference,
-	mach_msg_type_number_t referenceCnt,
-	kern_return_t *result,
-	mach_port_t *notification
-)
-{
-    STUB();
-    return KERN_NOT_SUPPORTED;
-}
-
 kern_return_t is_io_object_get_superclass
 (
 	mach_port_t master_port,
@@ -409,22 +377,6 @@ kern_return_t is_io_object_get_bundle_identifier
 	mach_port_t master_port,
 	io_name_t obj_name,
 	io_name_t class_name
-)
-{
-    STUB();
-    return KERN_NOT_SUPPORTED;
-}
-
-kern_return_t is_io_service_open_extended
-(
-	mach_port_t service,
-	task_t owningTask,
-	uint32_t connect_type,
-	NDR_record_t ndr,
-	io_buf_ptr_t properties,
-	mach_msg_type_number_t propertiesCnt,
-	kern_return_t *result,
-	mach_port_t *connection
 )
 {
     STUB();
@@ -494,21 +446,6 @@ kern_return_t is_io_connect_set_notification_port_64
     return KERN_NOT_SUPPORTED;
 }
 
-kern_return_t is_io_service_add_notification_64
-(
-	mach_port_t master_port,
-	io_name_t notification_type,
-	io_string_t matching,
-	mach_port_t wake_port,
-	io_async_ref64_t reference,
-	mach_msg_type_number_t referenceCnt,
-	mach_port_t *notification
-)
-{
-    STUB();
-    return KERN_NOT_SUPPORTED;
-}
-
 kern_return_t is_io_service_add_interest_notification_64
 (
 	mach_port_t service,
@@ -516,23 +453,6 @@ kern_return_t is_io_service_add_interest_notification_64
 	mach_port_t wake_port,
 	io_async_ref64_t reference,
 	mach_msg_type_number_t referenceCnt,
-	mach_port_t *notification
-)
-{
-    STUB();
-    return KERN_NOT_SUPPORTED;
-}
-
-kern_return_t is_io_service_add_notification_ool_64
-(
-	mach_port_t master_port,
-	io_name_t notification_type,
-	io_buf_ptr_t matching,
-	mach_msg_type_number_t matchingCnt,
-	mach_port_t wake_port,
-	io_async_ref64_t reference,
-	mach_msg_type_number_t referenceCnt,
-	kern_return_t *result,
 	mach_port_t *notification
 )
 {
@@ -573,19 +493,6 @@ kern_return_t is_io_service_get_matching_service
     return KERN_NOT_SUPPORTED;
 }
 
-kern_return_t is_io_service_get_matching_service_ool
-(
-	mach_port_t master_port,
-	io_buf_ptr_t matching,
-	mach_msg_type_number_t matchingCnt,
-	kern_return_t *result,
-	mach_port_t *service
-)
-{
-    STUB();
-    return KERN_NOT_SUPPORTED;
-}
-
 kern_return_t is_io_service_get_authorization_id
 (
 	mach_port_t service,
@@ -607,16 +514,6 @@ kern_return_t is_io_service_set_authorization_id
     return KERN_NOT_SUPPORTED;
 }
 
-kern_return_t is_io_server_version
-(
-	mach_port_t master_port,
-	uint64_t *version
-)
-{
-    STUB();
-    return KERN_NOT_SUPPORTED;
-}
-
 
 kern_return_t is_io_service_match_property_table_bin
 (
@@ -624,38 +521,6 @@ kern_return_t is_io_service_match_property_table_bin
 	io_struct_inband_t matching,
 	mach_msg_type_number_t matchingCnt,
 	boolean_t *matches
-)
-{
-    STUB();
-    return KERN_NOT_SUPPORTED;
-}
-
-kern_return_t is_io_service_add_notification_bin
-(
-	mach_port_t master_port,
-	io_name_t notification_type,
-	io_struct_inband_t matching,
-	mach_msg_type_number_t matchingCnt,
-	mach_port_t wake_port,
-	io_async_ref_t reference,
-	mach_msg_type_number_t referenceCnt,
-	mach_port_t *notification
-)
-{
-    STUB();
-    return KERN_NOT_SUPPORTED;
-}
-
-kern_return_t is_io_service_add_notification_bin_64
-(
-	mach_port_t master_port,
-	io_name_t notification_type,
-	io_struct_inband_t matching,
-	mach_msg_type_number_t matchingCnt,
-	mach_port_t wake_port,
-	io_async_ref64_t reference,
-	mach_msg_type_number_t referenceCnt,
-	mach_port_t *notification
 )
 {
     STUB();

@@ -50,7 +50,7 @@ IOObject::IOObject()
 		throw std::runtime_error("Failed to create dispatch source");
 
 	dispatch_source_set_event_handler(m_dispatchSource, ^{
-		dispatch_mig_server(m_dispatchSource, is_iokit_subsystem.maxsize, iokit_server);
+		dispatch_mig_server(m_dispatchSource, is_iokit_subsystem.maxsize, iokitSaveAuditTrail);
 	});
 	dispatch_resume(m_dispatchSource);
 

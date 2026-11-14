@@ -19,6 +19,7 @@
 
 #include "IOService.h"
 #import <Foundation/NSArray.h>
+#import <Foundation/NSString.h>
 
 extern "C" {
 #include "iokitmigServer.h"
@@ -38,6 +39,17 @@ bool IOService::matches(NSDictionary* dict)
 	{
 		NSObject* ourProp = ourProps[key];
 		NSObject* expectedValue = dict[key];
+
+		// XNU's IOService::matchInternal: IOProviderClass in a matching dictionary (IOServiceMatching) asks whether the
+		// service is an instance of that class (a value that is not a string is skipped, as there). It is not the
+		// service's personality key, which names its provider.
+		if ([key isEqualToString: @"IOProviderClass"])
+		{
+			if ([expectedValue isKindOfClass: [NSString class]]
+				&& !conformsTo([(NSString*) expectedValue UTF8String]))
+				return false;
+			continue;
+		}
 
 		if ([ourProp isKindOfClass:[NSArray class]])
 		{
@@ -64,11 +76,17 @@ bool IOService::matches(NSDictionary* dict)
 	return true;
 }
 
+IOReturn IOService::newUserClient(uint32_t type, IOUserClient** client)
+{
+	*client = nullptr;
+	return kIOReturnUnsupported;
+}
+
 bool IOService::conformsTo(const char* className)
 {
 	if (strcmp(className, "IOService") == 0)
 		return true;
-	return IOObject::conformsTo(className);
+	return IORegistryEntry::conformsTo(className);
 }
 
 kern_return_t is_io_service_get_state

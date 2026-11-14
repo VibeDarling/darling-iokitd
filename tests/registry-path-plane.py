@@ -113,6 +113,7 @@ std::unordered_map<uint64_t, IORegistryEntry*> IORegistryEntry::m_entriesById;
 std::shared_mutex IORegistryEntry::m_entriesByIdMutex;
 NSDictionary* IORegistryEntry::getProperties() { return nullptr; }
 const char* IORegistryEntry::className() const { return "IORegistryEntry"; }
+bool IORegistryEntry::conformsTo(const char*) { return false; }
 
 extern "C" {
 kern_return_t is_io_registry_entry_from_path(mach_port_t, io_string_t, mach_port_t*);
