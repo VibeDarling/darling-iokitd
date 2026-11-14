@@ -37,7 +37,7 @@ ServiceRegistry* ServiceRegistry::instance()
 	return &reg;
 }
 
-IOIterator* ServiceRegistry::iteratorForMatchingServices(NSDictionary* criteria) const
+std::vector<IOObject*> ServiceRegistry::matchingServices(NSDictionary* criteria) const
 {
 	std::vector<IOObject*> matching;
 
@@ -47,7 +47,12 @@ IOIterator* ServiceRegistry::iteratorForMatchingServices(NSDictionary* criteria)
 			matching.push_back(*it);
 	}
 
-	return new IOIterator(matching);
+	return matching;
+}
+
+IOIterator* ServiceRegistry::iteratorForMatchingServices(NSDictionary* criteria) const
+{
+	return new IOIterator(matchingServices(criteria));
 }
 
 IOService* ServiceRegistry::firstMatchingService(NSDictionary* criteria) const
@@ -81,7 +86,12 @@ kern_return_t is_io_service_get_matching_services_ool
 		{
 			CFTypeRef criteria = IOCFUnserializeBinary(matching, matchingCnt, nullptr, 0, &errorString);
 			if (!criteria)
+			{
+				// IOCFUnserialize reads to a NUL: refuse a buffer the client did not terminate.
+				if (matchingCnt == 0 || matching[matchingCnt - 1] != '\0')
+					throw std::runtime_error("io_service_get_matching_services_ool(): matching is not NUL terminated");
 				criteria = IOCFUnserialize(matching, nullptr, 0, &errorString);
+			}
 
 			if (!criteria)
 				throwCFStringException(CFSTR("io_service_get_matching_services_ool(): cannot parse 'matching': %@"), errorString);
