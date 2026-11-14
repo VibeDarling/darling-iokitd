@@ -43,7 +43,6 @@ static const char* SERVICE_NAME = "org.darlinghq.iokitd";
 mach_port_t g_masterPort, g_deathPort, g_powerManagementPort;
 
 static void discoverAllDevices();
-static boolean_t iokitSaveAuditTrail(mach_msg_header_t *message, mach_msg_header_t *reply);
 
 int main(int argc, const char** argv)
 {
@@ -133,13 +132,6 @@ int main(int argc, const char** argv)
 
 	dispatch_main();
 	return 0;
-}
-
-static boolean_t iokitSaveAuditTrail(mach_msg_header_t *message, mach_msg_header_t *reply)
-{
-	const mach_msg_context_trailer_t* trailer = reinterpret_cast<mach_msg_context_trailer_t*>(reinterpret_cast<char*>(message) + message->msgh_size);
-	audit_token_to_au32(trailer->msgh_audit, nullptr, nullptr, nullptr, nullptr, nullptr, &g_iokitCurrentCallerPID, nullptr, nullptr);
-	return iokit_server(message, reply);
 }
 
 static void discoverAllDevices()

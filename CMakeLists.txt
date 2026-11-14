@@ -29,6 +29,7 @@ set(iokitd_sources
 	src/stubs-powermanagement.c
 	src/iokitd.cpp
 	src/ServiceRegistry.mm
+	src/ServiceNotification.mm
 	src/IOObject.cpp
 	src/IOIterator.cpp
 	src/IOService.mm

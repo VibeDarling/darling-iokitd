@@ -117,9 +117,25 @@ NSDictionary* IOSurfaceRoot::matchingDictionary()
 	};
 }
 
+// IOSurfaceRoot is its own user client, as Darling's IOSurface framework uses it (it calls the service as a connection).
+// Connect type 0 is the only one: it is what the IOSurface framework of the dyld cache sends (seen in iokitd's request
+// log). Whether Apple's IOSurfaceRoot has other types is NEEDS-REAL-MAC.
+IOReturn IOSurfaceRoot::newUserClient(uint32_t type, IOUserClient** client)
+{
+	if (type != 0)
+	{
+		*client = nullptr;
+		return kIOReturnUnsupported;
+	}
+	*client = this;
+	return kIOReturnSuccess;
+}
+
 IOExternalMethod *IOSurfaceRoot::getExternalMethodForIndex(UInt32 index)
 {
-	static const IOExternalMethod methods[] = {
+	// Not const: each entry is bound to this object when it is returned. Selectors the table skips (the enum in
+	// IOSurfacePriv.h has gaps and more selectors than iokitd implements) have no func.
+	static IOExternalMethod methods[] = {
 		[kIOSurfaceMethodCreate] = {
 			.func = IOMethod(&IOSurfaceRoot::createSurface),
 			.flags = kIOUCStructIStructO,
@@ -178,12 +194,11 @@ IOExternalMethod *IOSurfaceRoot::getExternalMethodForIndex(UInt32 index)
 
 	registerCaller();
 
-	if (index >= sizeof(methods)/sizeof(IOExternalMethod))
+	if (index >= sizeof(methods)/sizeof(IOExternalMethod) || !methods[index].func)
 		return nullptr;
 
-	static IOExternalMethod method = methods[index];
-	method.object = this;
-	return &method;
+	methods[index].object = this;
+	return &methods[index];
 }
 
 IOReturn IOSurfaceRoot::createSurface(const void* inputData, void* outputData, IOByteCount inputCount, IOByteCount* outputCount)

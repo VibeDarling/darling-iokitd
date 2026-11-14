@@ -93,6 +93,7 @@ IOObject* IOObject::lookup(mach_port_t p) { auto it = m_objects.find(p); return 
 IORegistryEntry::IORegistryEntry() {}
 IORegistryEntry::~IORegistryEntry() {}
 const char* IORegistryEntry::className() const { return "IORegistryEntry"; }
+bool IORegistryEntry::conformsTo(const char*) { return false; }
 static CFObj g_props{kDict};
 NSDictionary* IORegistryEntry::getProperties() { return (NSDictionary*) &g_props; }
 
