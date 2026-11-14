@@ -24,6 +24,7 @@
 #include <IOKit/IOReturn.h>
 #include <os/log.h>
 #include <stdexcept>
+#include <memory>
 #import <Foundation/NSException.h>
 #include "IOIterator.h"
 
@@ -267,6 +268,71 @@ kern_return_t is_io_service_get_matching_services
 	}
 }
 
+namespace
+{
+	struct CFReleaser
+	{
+		void operator()(CFTypeRef object) const { CFRelease(object); }
+	};
+
+	// The matching dictionary of io_service_get_matching_service_bin and _ool, as XNU's
+	// internal_io_service_get_matching_service takes it. Binary first; the ool form then tries XML, as IOKitLib sends
+	// it when binary serialisation is off. IOCFUnserialize reads to a NUL: refuse a buffer the client did not terminate.
+	kern_return_t copyMatchingService(const char* functionName, mach_port_t masterPort, const char* matching,
+		mach_msg_type_number_t matchingLen, bool xmlFallback, mach_port_t* service)
+	{
+		*service = MACH_PORT_NULL;
+		if (masterPort != g_masterPort)
+			return kIOReturnNotPrivileged;
+
+		@try
+		{
+			try
+			{
+				CFStringRef errorString = nullptr;
+				CFTypeRef parsed = IOCFUnserializeBinary(matching, matchingLen, nullptr, 0, &errorString);
+				if (!parsed && xmlFallback)
+				{
+					if (errorString)
+						CFRelease(errorString);
+					errorString = nullptr;
+					if (matchingLen == 0 || matching[matchingLen - 1] != '\0')
+						throw std::runtime_error("matching is not NUL terminated");
+					parsed = IOCFUnserialize(matching, nullptr, 0, &errorString);
+				}
+				if (errorString)
+					CFRelease(errorString);
+				std::unique_ptr<const void, CFReleaser> criteria(parsed);
+
+				if (!criteria)
+					throw std::runtime_error("cannot parse 'matching'");
+				if (CFGetTypeID(criteria.get()) != CFDictionaryGetTypeID())
+					throw std::runtime_error("dictionary expected");
+
+				IOService* matched = ServiceRegistry::instance()->firstMatchingService((NSDictionary*) criteria.get());
+				if (!matched)
+					return kIOReturnNotFound;
+
+				*service = matched->port();
+				return kIOReturnSuccess;
+			}
+			catch (const std::exception& e)
+			{
+				os_log_error(OS_LOG_DEFAULT, "%s: %s", functionName, e.what());
+			}
+			catch (...)
+			{
+				os_log_error(OS_LOG_DEFAULT, "%s: unknown C++ exception", functionName);
+			}
+		}
+		@catch (NSException* e)
+		{
+			os_log_error(OS_LOG_DEFAULT, "%s: NSException: %s", functionName, [[e description] UTF8String]);
+		}
+		return kIOReturnBadArgument;
+	}
+}
+
 kern_return_t is_io_service_get_matching_service_bin
 (
 	mach_port_t master_port,
@@ -275,62 +341,20 @@ kern_return_t is_io_service_get_matching_service_bin
 	mach_port_t *service
 )
 {
-	CFStringRef errorString = nullptr;
-	@try
-	{
-		try
-		{
-			CFTypeRef criteria = IOCFUnserializeBinary(matching, matchingCnt, nullptr, 0, &errorString);
+	return copyMatchingService(__func__, master_port, matching, matchingCnt, false, service);
+}
 
-			if (!criteria)
-				throwCFStringException(CFSTR("io_service_get_matching_service_bin(): cannot parse 'matching': %@"), errorString);
-			
-			if (CFGetTypeID(criteria) != CFDictionaryGetTypeID())
-			{
-				CFRelease(criteria);
-				throw std::runtime_error("io_service_get_matching_service_bin(): dictionary expected");
-			}
-
-			IOService* matched = ServiceRegistry::instance()->firstMatchingService((NSDictionary*) criteria);
-			CFRelease(criteria);
-
-			if (matched)
-			{
-				*service = matched->port();
-				return kIOReturnSuccess;
-			}
-			else
-			{
-				*service = MACH_PORT_NULL;
-				return kIOReturnNotFound;
-			}
-		}
-		catch (const std::exception& e)
-		{
-			os_log_error(OS_LOG_DEFAULT, "is_io_service_get_matching_service_bin: %s", e.what());
-			if (errorString)
-				CFRelease(errorString);
-
-			*service = MACH_PORT_NULL;
-			return kIOReturnBadArgument;
-		}
-		catch (...)
-		{
-			os_log_error(OS_LOG_DEFAULT, "is_io_service_get_matching_service_bin: unknown C++ exception");
-			if (errorString)
-				CFRelease(errorString);
-
-			*service = MACH_PORT_NULL;
-			return kIOReturnBadArgument;
-		}
-	}
-	@catch (NSException* e)
-	{
-		os_log_error(OS_LOG_DEFAULT, "is_io_service_get_matching_service_bin: NSException: %s", [[e description] UTF8String]);
-		if (errorString)
-			CFRelease(errorString);
-
-		*service = MACH_PORT_NULL;
-		return kIOReturnBadArgument;
-	}
+// Like XNU, once the request is well formed the routine succeeds and the outcome is in *result.
+kern_return_t is_io_service_get_matching_service_ool
+(
+	mach_port_t master_port,
+	io_buf_ptr_t matching,
+	mach_msg_type_number_t matchingCnt,
+	kern_return_t *result,
+	mach_port_t *service
+)
+{
+	*result = copyMatchingService(__func__, master_port, matching, matchingCnt, true, service);
+	vm_deallocate(mach_task_self(), (vm_address_t) matching, matchingCnt);
+	return KERN_SUCCESS;
 }

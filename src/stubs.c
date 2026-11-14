@@ -509,19 +509,6 @@ kern_return_t is_io_service_get_matching_service
     return KERN_NOT_SUPPORTED;
 }
 
-kern_return_t is_io_service_get_matching_service_ool
-(
-	mach_port_t master_port,
-	io_buf_ptr_t matching,
-	mach_msg_type_number_t matchingCnt,
-	kern_return_t *result,
-	mach_port_t *service
-)
-{
-    STUB();
-    return KERN_NOT_SUPPORTED;
-}
-
 kern_return_t is_io_service_get_authorization_id
 (
 	mach_port_t service,
