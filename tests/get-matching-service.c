@@ -9,6 +9,8 @@
 //   - IOServiceOpen returns a connection for a service with a user client of that type, kIOReturnUnsupported for a
 //     service or a type without one, kIOReturnBadArgument for a null task or an object that is not a service;
 //   - the connection answers IOConnectCallMethod (an unknown selector is kIOReturnUnsupported);
+//   - the class chain is walked: every service is an IORegistryEntry too; an IOProviderClass that is not a string is skipped;
+//   - IOServiceOpen refuses an owning task that is not the caller's (kIOReturnBadArgument);
 //   - with RAW_MIG: the ool form of io_service_get_matching_service takes binary and XML, refuses a request that does
 //     not go to the master port (kIOReturnNotPrivileged), garbage (kIOReturnBadArgument) and an unterminated XML
 //     buffer, and answers kIOReturnNotFound for a dictionary nothing matches.
@@ -23,6 +25,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <unistd.h>
+#include <signal.h>
 
 typedef mach_port_t io_object_t, io_iterator_t, io_service_t, io_connect_t;
 typedef char io_name_t[128];
@@ -82,6 +86,34 @@ extern long CFDataGetLength(void*);
 extern void CFRelease(void*);
 // The raw MIG user stub (prototype as in the generated iokitmig64.h).
 extern kern_return_t io_service_get_matching_service_ool(mach_port_t, char*, mach_msg_type_number_t, kern_return_t*, mach_port_t*);
+extern kern_return_t io_service_open_extended(mach_port_t, task_t, uint32_t, NDR_record_t, char*, mach_msg_type_number_t, kern_return_t*, mach_port_t*);
+extern void* CFDictionaryCreateMutable(void*, long, const void*, const void*);
+extern const char kCFTypeDictionaryKeyCallBacks[], kCFTypeDictionaryValueCallBacks[];
+extern void* CFStringCreateWithCString(void*, const char*, unsigned);
+extern void* CFNumberCreate(void*, long, const void*);
+extern void CFDictionarySetValue(void*, const void*, const void*);
+
+// Opening with an owning task that is not the caller's: a port that is no task at all, and the task of a child process.
+static void raw_open_task(mach_port_t surface)
+{
+	kern_return_t result = 0x7777;
+	mach_port_t connection = 0x7777;
+	mach_port_t notATask = MACH_PORT_NULL;
+	expect_kr(mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &notATask), KERN_SUCCESS, "allocate a port");
+	expect_kr(mach_port_insert_right(mach_task_self(), notATask, notATask, MACH_MSG_TYPE_MAKE_SEND), KERN_SUCCESS, "make a send right");
+	expect_kr(io_service_open_extended(surface, notATask, 0, NDR_record, NULL, 0, &result, &connection), kIOReturnBadArgument, "IOServiceOpen with a port that is not a task");
+
+	pid_t child = fork();
+	expect(child >= 0, "fork");
+	if (child == 0) {
+		sleep(30);
+		_exit(0);
+	}
+	mach_port_t childTask = MACH_PORT_NULL;
+	expect_kr(task_for_pid(mach_task_self(), child, &childTask), KERN_SUCCESS, "task_for_pid of the child");
+	expect_kr(io_service_open_extended(surface, childTask, 0, NDR_record, NULL, 0, &result, &connection), kIOReturnBadArgument, "IOServiceOpen with the child's task");
+	kill(child, 9);
+}
 
 static void raw_ool(mach_port_t master, mach_port_t service)
 {
@@ -130,6 +162,19 @@ static void raw_ool(mach_port_t master, mach_port_t service)
 	expect(io_service_get_matching_service_ool(service, (char*)CFDataGetBytePtr(binary), (mach_msg_type_number_t)CFDataGetLength(binary), &result, &out) == KERN_SUCCESS
 	    && result == kIOReturnNotPrivileged, "ool, sent to a service port instead of the master port");
 
+	// IOProviderClass that is not a string is skipped, so it does not stop the service matching.
+	{
+		void* dict = CFDictionaryCreateMutable(NULL, 0, kCFTypeDictionaryKeyCallBacks, kCFTypeDictionaryValueCallBacks);
+		int seven = 7;
+		CFDictionarySetValue(dict, CFStringCreateWithCString(NULL, "IOProviderClass", 0x08000100), CFNumberCreate(NULL, 9 /* kCFNumberIntType */, &seven));
+		void* serialized = IOCFSerialize(dict, 1);
+		expect(serialized != NULL, "serialize a dictionary with a number as IOProviderClass");
+		out = 0x7777;
+		expect(io_service_get_matching_service_ool(master, (char*)CFDataGetBytePtr(serialized), (mach_msg_type_number_t)CFDataGetLength(serialized), &result, &out) == KERN_SUCCESS
+		    && result == KERN_SUCCESS && MACH_PORT_VALID(out), "ool, IOProviderClass that is not a string: skipped, a service matches");
+		IOObjectRelease(out);
+	}
+
 	CFRelease(binary);
 	CFRelease(xml);
 	CFRelease(nothing);
@@ -154,6 +199,7 @@ int main(void)
 
 	expect(count(master, "IOSurfaceRoot") == 1, "exactly one IOSurfaceRoot");
 	expect(count(master, "IOService") >= 2, "every service is an IOService");
+	expect(count(master, "IORegistryEntry") == count(master, "IOService"), "every service is an IORegistryEntry");
 	expect(count(master, "IOResources") == 0, "IOResources is IOSurfaceRoot's provider, not a class it has");
 	expect(count(master, "NoSuchClassAnywhere") == 0, "an unknown class matches nothing");
 	expect(!MACH_PORT_VALID(IOServiceGetMatchingService(master, IOServiceMatching("NoSuchClassAnywhere"))), "no service for an unknown class");
@@ -178,6 +224,7 @@ int main(void)
 
 #ifdef RAW_MIG
 	raw_ool(master, surface);
+	raw_open_task(surface);
 #endif
 
 	IOObjectRelease(surface);

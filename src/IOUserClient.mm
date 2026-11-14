@@ -48,6 +48,11 @@ kern_return_t is_io_service_open_extended
 	if (!target || !MACH_PORT_VALID(owningTask))
 		return kIOReturnBadArgument;
 
+	// XNU: the owning task must be the caller's own.
+	int owningPid = -1;
+	if (pid_for_task(owningTask, &owningPid) != KERN_SUCCESS || owningPid != g_iokitCurrentCallerPID)
+		return kIOReturnBadArgument;
+
 	// XNU refuses open properties too (the code that read them is #if 0 there).
 	if (properties)
 		return kIOReturnUnsupported;
